@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VDR Copilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1>VDR Copilot</h1>
+                        <span class="logo-subtitle">Document Intelligence</span>
+                    </div>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Mode</h3>
+                <div class="mode-selector">
+                    <div class="mode-btn-wrapper">
+                        <button class="mode-btn active" data-mode="chat">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Chat
+                        </button>
+                        <span class="mode-tooltip">Ask questions about your documents and get sourced answers</span>
+                    </div>
+                    <div class="mode-btn-wrapper">
+                        <button class="mode-btn" data-mode="compare">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                            Compare
+                        </button>
+                        <span class="mode-tooltip">Compare fees, allocations, and terms across multiple funds side by side</span>
+                    </div>
+                    <div class="mode-btn-wrapper">
+                        <button class="mode-btn" data-mode="calculate">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+                            Calculate
+                        </button>
+                        <span class="mode-tooltip">Extract figures from documents and perform calculations with shown working</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Documents</h3>
+                <div class="doc-filter">
+                    <input type="text" id="docSearch" placeholder="Filter documents...">
+                </div>
+                <div class="doc-list" id="docList">
+                    <div class="loading-docs">Loading documents...</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section sidebar-footer">
+                <div class="index-health" id="indexHealth">
+                    <div class="health-dot"></div>
+                    <span>Checking index...</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                    </div>
+                    <h2>VDR Copilot</h2>
+                    <p>Ask questions about fund documents, compare investments, or extract key figures from your virtual data room.</p>
+                    <div class="suggestion-grid" id="suggestionGrid"></div>
+                </div>
+                <div class="messages" id="messages"></div>
+            </div>
+
+            <div class="input-area">
+                <div class="fund-filter-bar" id="fundFilterBar" style="display:none;">
+                    <span class="filter-label">Filtering:</span>
+                    <span class="filter-value" id="filterValue"></span>
+                    <button class="filter-clear" id="filterClear">&times;</button>
+                </div>
+                <form class="chat-form" id="chatForm">
+                    <div class="input-wrapper">
+                        <textarea
+                            id="queryInput"
+                            placeholder="Ask about fund documents..."
+                            rows="1"
+                            autofocus
+                        ></textarea>
+                        <button type="submit" class="send-btn" id="sendBtn" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-hint">
+                        <span id="modeHint">Chat mode</span> · Press Enter to send, Shift+Enter for new line
+                    </div>
+                </form>
+            </div>
+        </main>
+
+        <aside class="source-panel" id="sourcePanel">
+            <div class="source-panel-header">
+                <h3>Sources</h3>
+                <button class="source-panel-close" id="sourcePanelClose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="source-panel-body" id="sourcePanelBody"></div>
+        </aside>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
