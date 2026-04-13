@@ -4,6 +4,10 @@ An AI-powered document intelligence platform for querying financial documents fr
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![Pinecone](https://img.shields.io/badge/Pinecone-Integrated_Inference-green) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-red)
 
+## Reproducing from Scratch
+
+The `PROMPT.md` file contains a self-contained AI coding prompt that describes the entire application. You can copy and paste it into any AI coding tool (Cursor, Copilot, Windsurf, etc.) to regenerate the full project from scratch.
+
 ## What It Does
 
 Financial teams manually review thousands of pages of fund documents from deal rooms during investment workflows. This prototype demonstrates how RAG (Retrieval Augmented Generation) can automate that process through a conversational interface.
@@ -195,10 +199,6 @@ Click any document in the sidebar to scope all queries to that specific fund. Cl
 | `PINECONE_API_KEY` | Your Pinecone API key | *required* |
 | `OPENAI_API_KEY` | Your OpenAI API key | *required* |
 | `PINECONE_INDEX_NAME` | Name of the Pinecone index | `vdr-copilot` |
-
-## Reproducing from Scratch
-
-The `PROMPT.md` file contains a self-contained AI coding prompt that describes the entire application. You can copy and paste it into any AI coding tool (Cursor, Copilot, Windsurf, etc.) to regenerate the full project from scratch.
 
 ## License
 
