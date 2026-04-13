@@ -1,0 +1,10 @@
+fastapi>=0.115.0
+uvicorn>=0.34.0
+pinecone>=5.4.0
+pymupdf>=1.25.0
+python-dotenv>=1.0.0
+openai>=1.60.0
+python-multipart>=0.0.18
+pyarrow>=18.0.0
+numpy>=2.0.0
+tqdm>=4.66.0
