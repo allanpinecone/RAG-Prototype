@@ -3,7 +3,7 @@ const API = window.location.origin;
 const state = {
     mode: "chat",
     conversationHistory: [],
-    fundFilter: null,
+    documentFilter: null,
     documents: [],
     currentSources: [],
     suggestions: {},
@@ -36,8 +36,8 @@ function initSidebar() {
         filterDocuments(e.target.value);
     });
     $("#filterClear").addEventListener("click", () => {
-        state.fundFilter = null;
-        $("#fundFilterBar").style.display = "none";
+        state.documentFilter = null;
+        $("#documentFilterBar").style.display = "none";
         $$(".doc-item").forEach((el) => el.classList.remove("active"));
     });
 }
@@ -61,7 +61,7 @@ function initModeSelector() {
 function updateModeHint() {
     const hints = {
         chat: "Chat mode — ask questions about your documents",
-        compare: "Compare mode — compare funds or documents side by side",
+        compare: "Compare mode — compare documents or entities side by side",
         calculate: "Calculate mode — extract figures and perform calculations",
     };
     $("#modeHint").textContent = hints[state.mode] || "Chat mode";
@@ -117,7 +117,7 @@ async function sendMessage(query) {
             body: JSON.stringify({
                 query,
                 conversation_history: state.conversationHistory.slice(-6),
-                fund_filter: state.fundFilter,
+                document_filter: state.documentFilter,
                 top_k: state.mode === "compare" ? 12 : 8,
                 mode: state.mode,
             }),
@@ -162,7 +162,7 @@ function appendMessage(role, content, sources = null) {
     div.innerHTML = `
         <div class="message-avatar ${role}">${avatarIcon}</div>
         <div class="message-body">
-            <div class="message-sender">${role === "user" ? "You" : "VDR Copilot"}</div>
+            <div class="message-sender">${role === "user" ? "You" : "RAG Assistant"}</div>
             <div class="message-content">${renderMarkdown(content)}</div>
             ${sourcesBtn}
         </div>`;
@@ -180,7 +180,7 @@ function appendLoading() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         </div>
         <div class="message-body">
-            <div class="message-sender">VDR Copilot</div>
+            <div class="message-sender">RAG Assistant</div>
             <div class="typing-indicator"><span></span><span></span><span></span></div>
         </div>`;
     messagesEl.appendChild(div);
@@ -205,11 +205,11 @@ function showSources(sources) {
             (s, i) => `
         <div class="source-card">
             <div class="source-card-header">
-                <span class="source-card-name">${escapeHtml(s.fund_name)}</span>
+                <span class="source-card-name">${escapeHtml(s.document_name)}</span>
                 <span class="source-card-score">${(s.score * 100).toFixed(1)}% match</span>
             </div>
             <div class="source-card-meta">
-                ${getBadgeHtml(s.category)} · Page ${s.page_number} · ${escapeHtml(s.source_file)}
+                ${getBadgeHtml(s.document_type)} · Page ${s.page_number} · ${escapeHtml(s.source_file)}
             </div>
             <div class="source-card-excerpt">${escapeHtml(s.text)}</div>
         </div>`
@@ -242,9 +242,9 @@ function renderDocuments(docs) {
     list.innerHTML = docs
         .map(
             (doc) => `
-        <div class="doc-item" data-fund="${escapeHtml(doc.fund_name)}" onclick="selectDocument(this, '${escapeHtml(doc.fund_name).replace(/'/g, "\\'")}')">
-            <div class="doc-item-name">${escapeHtml(doc.fund_name)}</div>
-            <div class="doc-item-meta">${getBadgeHtml(doc.category)} · ${escapeHtml(doc.folder)}</div>
+        <div class="doc-item" data-document="${escapeHtml(doc.document_name)}" onclick="selectDocument(this, '${escapeHtml(doc.document_name).replace(/'/g, "\\'")}')">
+            <div class="doc-item-name">${escapeHtml(doc.document_name)}</div>
+            <div class="doc-item-meta">${getBadgeHtml(doc.document_type)} · ${escapeHtml(doc.folder)}</div>
         </div>`
         )
         .join("");
@@ -253,21 +253,24 @@ function renderDocuments(docs) {
 function filterDocuments(query) {
     const q = query.toLowerCase();
     const filtered = state.documents.filter(
-        (d) => d.fund_name.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.folder.toLowerCase().includes(q)
+        (d) =>
+            d.document_name.toLowerCase().includes(q)
+            || d.document_type.toLowerCase().includes(q)
+            || d.folder.toLowerCase().includes(q)
     );
     renderDocuments(filtered);
 }
 
-function selectDocument(el, fundName) {
+function selectDocument(el, documentName) {
     $$(".doc-item").forEach((d) => d.classList.remove("active"));
-    if (state.fundFilter === fundName) {
-        state.fundFilter = null;
-        $("#fundFilterBar").style.display = "none";
+    if (state.documentFilter === documentName) {
+        state.documentFilter = null;
+        $("#documentFilterBar").style.display = "none";
     } else {
         el.classList.add("active");
-        state.fundFilter = fundName;
-        $("#filterValue").textContent = fundName;
-        $("#fundFilterBar").style.display = "flex";
+        state.documentFilter = documentName;
+        $("#filterValue").textContent = documentName;
+        $("#documentFilterBar").style.display = "flex";
     }
 }
 

@@ -1,5 +1,5 @@
 """
-Generate 200K synthetic fund documents, chunk them, embed via Pinecone
+Generate 200K synthetic documents, chunk them, embed via Pinecone
 hosted inference (llama-text-embed-v2 @ 2048d), and write to Parquet
 files formatted for Pinecone bulk import.
 
@@ -928,8 +928,8 @@ def generate_all_chunks(funds: list[dict], num_documents: int,
             all_chunks.append({
                 "id": _make_record_id(source_file, chunk_idx),
                 "chunk_text": chunk,
-                "fund_name": fund["name"],
-                "category": cat_name,
+                "document_name": fund["name"],
+                "document_type": cat_name,
                 "source_file": source_file,
                 "page_number": page_number,
                 "folder": folder,
@@ -961,8 +961,8 @@ PARQUET_SCHEMA = pa.schema([
     ("id", pa.string()),
     ("values", pa.list_(pa.float32())),
     ("chunk_text", pa.string()),
-    ("fund_name", pa.string()),
-    ("category", pa.string()),
+    ("document_name", pa.string()),
+    ("document_type", pa.string()),
     ("source_file", pa.string()),
     ("page_number", pa.int32()),
     ("folder", pa.string()),
@@ -976,8 +976,8 @@ def write_parquet(chunks: list[dict], vectors: list[list[float]],
             "id": [c["id"] for c in chunks],
             "values": [np.array(v, dtype=np.float32) for v in vectors],
             "chunk_text": [c["chunk_text"] for c in chunks],
-            "fund_name": [c["fund_name"] for c in chunks],
-            "category": [c["category"] for c in chunks],
+            "document_name": [c["document_name"] for c in chunks],
+            "document_type": [c["document_type"] for c in chunks],
             "source_file": [c["source_file"] for c in chunks],
             "page_number": [c["page_number"] for c in chunks],
             "folder": [c["folder"] for c in chunks],

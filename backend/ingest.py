@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "vdr-copilot")
+INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "rag-prototype")
 DOCS_DIR = Path(__file__).resolve().parent.parent / "Documents"
 
 CHUNK_SIZE = 1000  # chars
@@ -62,8 +62,8 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     return [c for c in chunks if len(c) > 50]
 
 
-def derive_fund_name(pdf_path: Path) -> str:
-    """Derive a human-readable fund/document name from the file path."""
+def derive_document_name(pdf_path: Path) -> str:
+    """Derive a human-readable document name from the file path."""
     name = pdf_path.stem
     name = name.replace("-", " ").replace("_", " ")
     name = re.sub(r"\b(en|gb|uk|eur|usd|gbp|pdf)\b", "", name, flags=re.IGNORECASE)
@@ -71,7 +71,7 @@ def derive_fund_name(pdf_path: Path) -> str:
     return name or pdf_path.stem
 
 
-def derive_fund_category(pdf_path: Path) -> str:
+def derive_document_type(pdf_path: Path) -> str:
     """Categorise documents by type based on filename patterns."""
     fname = pdf_path.name.lower()
     if "prospectus" in fname:
@@ -90,7 +90,7 @@ def derive_fund_category(pdf_path: Path) -> str:
         return "Legal / Instrument"
     if "information_document" in fname or "information-document" in fname:
         return "Information Document"
-    return "Fund Document"
+    return "General Document"
 
 
 def collect_pdfs(directory: Path) -> list[Path]:
@@ -143,8 +143,8 @@ def ingest():
     total_chunks = 0
     for pdf_path in pdfs:
         rel_path = pdf_path.relative_to(DOCS_DIR)
-        fund_name = derive_fund_name(pdf_path)
-        category = derive_fund_category(pdf_path)
+        document_name = derive_document_name(pdf_path)
+        document_type = derive_document_type(pdf_path)
         parent_folder = str(rel_path.parent) if str(rel_path.parent) != "." else "Root"
 
         print(f"Processing: {rel_path}")
@@ -162,8 +162,8 @@ def ingest():
                 record = {
                     "_id": make_record_id(pdf_path, chunk_idx),
                     "chunk_text": chunk,
-                    "fund_name": fund_name,
-                    "category": category,
+                    "document_name": document_name,
+                    "document_type": document_type,
                     "source_file": str(rel_path),
                     "page_number": page_info["page"],
                     "folder": parent_folder,
@@ -173,7 +173,7 @@ def ingest():
 
         for i in range(0, len(records), BATCH_SIZE):
             batch = records[i : i + BATCH_SIZE]
-            index.upsert_records(namespace="funds", records=batch)
+            index.upsert_records(namespace="documents", records=batch)
             time.sleep(0.5)
 
         total_chunks += chunk_idx

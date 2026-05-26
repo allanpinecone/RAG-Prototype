@@ -1,6 +1,6 @@
 """
-FastAPI backend for the VDR Copilot.
-Provides RAG-powered Q&A over fund documents stored in Pinecone.
+FastAPI backend for a generic RAG prototype.
+Provides RAG-powered Q&A over documents stored in Pinecone.
 """
 
 import os
@@ -22,7 +22,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "vdr-copilot")
+INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "rag-prototype")
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
@@ -30,7 +30,7 @@ llm = OpenAI(api_key=OPENAI_API_KEY)
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
-app = FastAPI(title="VDR Copilot", version="1.0.0")
+app = FastAPI(title="RAG Prototype", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,17 +39,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SYSTEM_PROMPT = """You are the VDR Copilot, an expert AI assistant for analysing private equity and investment fund documents from virtual data rooms.
+SYSTEM_PROMPT = """You are an expert retrieval-augmented AI assistant for document analysis.
 
-You help analysts quickly find figures, compare funds, perform calculations, and extract key information from prospectuses, KIIDs, factsheets, annual reports, and other fund documents.
+You help users quickly locate facts, compare information, perform calculations, and extract key details from their uploaded documents.
 
 RULES:
 - Answer ONLY based on the provided context from the retrieved documents. If the context doesn't contain enough information, say so clearly.
 - When citing figures, always mention the source document name and page number.
-- When asked to compare funds, present information in a structured format (tables when appropriate using markdown).
+- When asked to compare items, present information in a structured format (tables when appropriate using markdown).
 - When asked for calculations, show your working step by step.
 - Use British English spelling conventions (e.g. "analyse" not "analyze").
-- Format monetary values with appropriate currency symbols.
+- Format values in a way that matches the user's context (including currency symbols when relevant).
 - Be precise with percentages and numerical data — do not round unless asked.
 - If a question is ambiguous, ask for clarification rather than guessing.
 """
@@ -58,7 +58,7 @@ RULES:
 class ChatRequest(BaseModel):
     query: str
     conversation_history: list[dict] = []
-    fund_filter: Optional[str] = None
+    document_filter: Optional[str] = None
     top_k: int = 8
     mode: str = "chat"  # "chat", "compare", "calculate"
 
@@ -71,25 +71,25 @@ class ChatResponse(BaseModel):
 
 
 class DocumentInfo(BaseModel):
-    fund_name: str
-    category: str
+    document_name: str
+    document_type: str
     source_file: str
     folder: str
 
 
-def search_documents(query: str, top_k: int = 8, fund_filter: Optional[str] = None) -> list[dict]:
+def search_documents(query: str, top_k: int = 8, document_filter: Optional[str] = None) -> list[dict]:
     """Search Pinecone using integrated inference."""
     search_params = {
-        "namespace": "funds",
+        "namespace": "documents",
         "query": {
             "inputs": {"text": query},
             "top_k": top_k,
         },
-        "fields": ["chunk_text", "fund_name", "category", "source_file", "page_number", "folder"],
+        "fields": ["chunk_text", "document_name", "document_type", "source_file", "page_number", "folder"],
     }
 
-    if fund_filter:
-        search_params["query"]["filter"] = {"fund_name": {"$eq": fund_filter}}
+    if document_filter:
+        search_params["query"]["filter"] = {"document_name": {"$eq": document_filter}}
 
     results = index.search(**search_params)
     sources = []
@@ -99,8 +99,8 @@ def search_documents(query: str, top_k: int = 8, fund_filter: Optional[str] = No
             "id": hit["_id"],
             "score": hit["_score"],
             "text": fields.get("chunk_text", ""),
-            "fund_name": fields.get("fund_name", "Unknown"),
-            "category": fields.get("category", "Unknown"),
+            "document_name": fields.get("document_name", "Unknown"),
+            "document_type": fields.get("document_type", "Unknown"),
             "source_file": fields.get("source_file", ""),
             "page_number": fields.get("page_number", 0),
             "folder": fields.get("folder", ""),
@@ -113,8 +113,8 @@ def build_context(sources: list[dict]) -> str:
     context_parts = []
     for i, src in enumerate(sources, 1):
         context_parts.append(
-            f"[Source {i}] Document: {src['fund_name']} | "
-            f"Type: {src['category']} | "
+            f"[Source {i}] Document: {src['document_name']} | "
+            f"Type: {src['document_type']} | "
             f"File: {src['source_file']} | "
             f"Page: {src['page_number']}\n"
             f"{src['text']}"
@@ -125,7 +125,7 @@ def build_context(sources: list[dict]) -> str:
 def get_mode_instruction(mode: str) -> str:
     if mode == "compare":
         return (
-            "\n\nThe user wants to COMPARE funds or documents. "
+            "\n\nThe user wants to COMPARE documents or entities. "
             "Present your answer in a structured comparison format, using markdown tables where appropriate. "
             "Highlight key differences and similarities."
         )
@@ -172,12 +172,12 @@ async def chat(request: ChatRequest):
         sources = search_documents(
             query=request.query,
             top_k=request.top_k,
-            fund_filter=request.fund_filter,
+            document_filter=request.document_filter,
         )
 
         if not sources:
             return ChatResponse(
-                answer="I couldn't find any relevant information in the fund documents for your query. Please try rephrasing or broadening your question.",
+                answer="I couldn't find any relevant information in the indexed documents for your query. Please try rephrasing or broadening your question.",
                 sources=[],
                 query=request.query,
                 mode=request.mode,
@@ -192,8 +192,8 @@ async def chat(request: ChatRequest):
 
         clean_sources = [
             {
-                "fund_name": s["fund_name"],
-                "category": s["category"],
+                "document_name": s["document_name"],
+                "document_type": s["document_type"],
                 "source_file": s["source_file"],
                 "page_number": s["page_number"],
                 "text": s["text"][:300] + "..." if len(s["text"]) > 300 else s["text"],
@@ -217,9 +217,9 @@ async def list_documents():
     """List unique documents that have been ingested (sampled from the index)."""
     try:
         results = index.search(
-            namespace="funds",
-            query={"inputs": {"text": "fund overview prospectus factsheet"}, "top_k": 100},
-            fields=["fund_name", "category", "source_file", "folder"],
+            namespace="documents",
+            query={"inputs": {"text": "document summary report reference"}, "top_k": 100},
+            fields=["document_name", "document_type", "source_file", "folder"],
         )
         seen = set()
         documents = []
@@ -229,12 +229,12 @@ async def list_documents():
             if source_file and source_file not in seen:
                 seen.add(source_file)
                 documents.append({
-                    "fund_name": fields.get("fund_name", "Unknown"),
-                    "category": fields.get("category", "Unknown"),
+                    "document_name": fields.get("document_name", "Unknown"),
+                    "document_type": fields.get("document_type", "Unknown"),
                     "source_file": source_file,
                     "folder": fields.get("folder", "Root"),
                 })
-        documents.sort(key=lambda d: (d["folder"], d["fund_name"]))
+        documents.sort(key=lambda d: (d["folder"], d["document_name"]))
         return {"documents": documents, "total": len(documents)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -260,79 +260,79 @@ async def suggest_questions():
     return {
         "chat": [
             {
-                "text": "What are the key risks associated with the Vanguard LifeStrategy funds?",
+                "text": "What are the key goals and constraints described in these documents?",
                 "icon": "shield",
             },
             {
-                "text": "Summarise the investment objectives of the Personal Portfolio funds",
+                "text": "Summarise the main points covered across the document set",
                 "icon": "target",
             },
             {
-                "text": "What ESG or climate-related criteria do the ActiveLife Climate Aware funds use?",
+                "text": "Which sections describe compliance, policy, or governance requirements?",
                 "icon": "leaf",
             },
             {
-                "text": "What is the benchmark index for the Franklin S&P 500 Paris Aligned Climate ETF?",
+                "text": "Which document defines the core terms and key definitions?",
                 "icon": "search",
             },
             {
-                "text": "What are the dealing and valuation arrangements for the OEIC funds?",
+                "text": "What deadlines, timelines, or milestone dates are specified?",
                 "icon": "clock",
             },
             {
-                "text": "Which funds have exposure to US equities and what are their top holdings?",
+                "text": "What are the major risks, assumptions, or dependencies called out?",
                 "icon": "globe",
             },
         ],
         "compare": [
             {
-                "text": "Compare the ongoing charges between the LifeStrategy 40, 60, and 80 equity funds",
+                "text": "Compare the scope and objectives of documents A and B",
                 "icon": "scale",
             },
             {
-                "text": "Compare the asset allocation of the PPF Balanced vs PPF Cautious funds",
+                "text": "How do the requirement sections differ between these documents?",
                 "icon": "pie-chart",
             },
             {
-                "text": "How do the risk profiles differ between the Vanguard ActiveLife Climate Aware 40-50 and 80-90 funds?",
+                "text": "Compare the risk statements across the selected documents",
                 "icon": "shield",
             },
             {
-                "text": "Compare the investment objectives of the defensive vs adventurous Personal Portfolio funds",
+                "text": "What changes between version 1 and version 2 of this policy?",
                 "icon": "target",
             },
             {
-                "text": "What are the differences in geographic allocation between the LifeStrategy 20 and LifeStrategy 80 funds?",
+                "text": "Compare responsibilities and ownership across the process documents",
                 "icon": "globe",
             },
             {
-                "text": "Compare the ESG factsheets of the balanced, cautious, and defensive funds",
+                "text": "How do the acceptance criteria vary between the proposals?",
                 "icon": "leaf",
             },
         ],
         "calculate": [
             {
-                "text": "What is the total expense ratio for the Franklin S&P 500 Paris Aligned Climate ETF?",
+                "text": "Add up the budget figures listed across these sections",
                 "icon": "calculator",
             },
             {
-                "text": "If I invested £100,000 in LifeStrategy 60, what would the annual charges be?",
+                "text": "Calculate the percentage change between the two reported totals",
                 "icon": "coins",
             },
             {
-                "text": "What is the total AUM across all LifeStrategy funds combined?",
+                "text": "What is the combined total count of items mentioned in these tables?",
                 "icon": "trending-up",
             },
             {
-                "text": "What is the percentage split between equities and fixed income in the LifeStrategy 40 fund?",
+                "text": "Compute the average value for the metrics listed in the document",
                 "icon": "pie-chart",
             },
             {
-                "text": "How much of the ActiveLife Climate Aware 60-70 fund is allocated to international equities?",
+                "text": "Estimate the monthly run rate based on the provided quarterly numbers",
                 "icon": "globe",
             },
             {
-                "text": "What is the difference in ongoing charges between the PPF Ambitious and PPF Defensive funds?",
+                "text": "What is the difference between the minimum and maximum values reported?",
                 "icon": "calculator",
             },
         ],

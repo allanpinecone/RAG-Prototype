@@ -580,7 +580,7 @@ body {
     background: var(--bg-secondary);
 }
 
-.fund-filter-bar {
+.document-filter-bar {
     display: flex;
     align-items: center;
     gap: 8px;
