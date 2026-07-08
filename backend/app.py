@@ -6,6 +6,9 @@ Provides RAG-powered Q&A over documents stored in Pinecone.
 import os
 import json
 import re
+import asyncio
+import time
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -77,6 +80,28 @@ class DocumentInfo(BaseModel):
     folder: str
 
 
+class LoadTestRequest(BaseModel):
+    query: str = "document summary"
+    qps: float = 1.0
+    duration_seconds: int = 10
+    top_k: int = 8
+    document_filter: Optional[str] = None
+
+
+class LoadTestResponse(BaseModel):
+    query: str
+    qps_target: float
+    qps_achieved: float
+    duration_seconds: int
+    total_requests: int
+    successful_requests: int
+    failed_requests: int
+    avg_latency_ms: Optional[float]
+    p50_latency_ms: Optional[float]
+    p90_latency_ms: Optional[float]
+    p99_latency_ms: Optional[float]
+
+
 def search_documents(query: str, top_k: int = 8, document_filter: Optional[str] = None) -> list[dict]:
     """Search Pinecone using integrated inference."""
     search_params = {
@@ -106,6 +131,41 @@ def search_documents(query: str, top_k: int = 8, document_filter: Optional[str] 
             "folder": fields.get("folder", ""),
         })
     return sources
+
+
+def compute_percentile(values: list[float], percentile: float) -> Optional[float]:
+    """Return percentile with linear interpolation."""
+    if not values:
+        return None
+    sorted_values = sorted(values)
+    position = (len(sorted_values) - 1) * percentile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return sorted_values[int(position)]
+    lower_value = sorted_values[lower]
+    upper_value = sorted_values[upper]
+    return lower_value + (upper_value - lower_value) * (position - lower)
+
+
+def pinecone_search_latency_ms(query: str, top_k: int, document_filter: Optional[str]) -> float:
+    """Execute one Pinecone search call and return latency in milliseconds."""
+    search_params = {
+        "namespace": "documents",
+        "query": {
+            "inputs": {"text": query},
+            "top_k": top_k,
+        },
+        "fields": ["source_file"],
+    }
+
+    if document_filter:
+        search_params["query"]["filter"] = {"document_name": {"$eq": document_filter}}
+
+    started = time.perf_counter()
+    index.search(**search_params)
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    return elapsed_ms
 
 
 def build_context(sources: list[dict]) -> str:
@@ -337,6 +397,71 @@ async def suggest_questions():
             },
         ],
     }
+
+
+@app.post("/api/load-test", response_model=LoadTestResponse)
+async def load_test(request: LoadTestRequest):
+    """Run Pinecone search load test at requested QPS and return latency stats."""
+    if request.qps <= 0:
+        raise HTTPException(status_code=400, detail="qps must be greater than 0")
+    if request.duration_seconds <= 0:
+        raise HTTPException(status_code=400, detail="duration_seconds must be greater than 0")
+    if request.top_k <= 0:
+        raise HTTPException(status_code=400, detail="top_k must be greater than 0")
+
+    total_requests = max(1, int(round(request.qps * request.duration_seconds)))
+    interval_seconds = 1.0 / request.qps
+    latencies: list[float] = []
+    failed_requests = 0
+    tasks: list[asyncio.Task] = []
+
+    async def run_single_call() -> Optional[float]:
+        try:
+            return await asyncio.to_thread(
+                pinecone_search_latency_ms,
+                request.query,
+                request.top_k,
+                request.document_filter,
+            )
+        except Exception:
+            return None
+
+    started = time.perf_counter()
+
+    for i in range(total_requests):
+        target_time = started + (i * interval_seconds)
+        now = time.perf_counter()
+        sleep_for = target_time - now
+        if sleep_for > 0:
+            await asyncio.sleep(sleep_for)
+        tasks.append(asyncio.create_task(run_single_call()))
+
+    results = await asyncio.gather(*tasks)
+    elapsed_seconds = max(time.perf_counter() - started, 1e-9)
+
+    for latency in results:
+        if latency is None:
+            failed_requests += 1
+        else:
+            latencies.append(latency)
+
+    successful_requests = len(latencies)
+    qps_achieved = total_requests / elapsed_seconds
+    avg_latency = (sum(latencies) / successful_requests) if successful_requests else None
+
+    return LoadTestResponse(
+        query=request.query,
+        qps_target=request.qps,
+        qps_achieved=qps_achieved,
+        duration_seconds=request.duration_seconds,
+        total_requests=total_requests,
+        successful_requests=successful_requests,
+        failed_requests=failed_requests,
+        avg_latency_ms=avg_latency,
+        p50_latency_ms=compute_percentile(latencies, 0.50),
+        p90_latency_ms=compute_percentile(latencies, 0.90),
+        p99_latency_ms=compute_percentile(latencies, 0.99),
+    )
 
 
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

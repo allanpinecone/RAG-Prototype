@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initSidebar();
     initModeSelector();
     initChatForm();
+    initLoadTestForm();
     loadDocuments();
     loadSuggestions();
     checkHealth();
@@ -39,6 +40,15 @@ function initSidebar() {
         state.documentFilter = null;
         $("#documentFilterBar").style.display = "none";
         $$(".doc-item").forEach((el) => el.classList.remove("active"));
+    });
+}
+
+function initLoadTestForm() {
+    const form = $("#loadTestForm");
+    if (!form) return;
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await runLoadTest();
     });
 }
 
@@ -351,6 +361,82 @@ async function checkHealth() {
         const el = $("#indexHealth");
         el.innerHTML = `<div class="health-dot degraded"></div><span>Backend offline</span>`;
     }
+}
+
+// ───── Pinecone Load Test ─────
+
+async function runLoadTest() {
+    const qps = Number($("#loadTestQps").value);
+    const duration = Number($("#loadTestDuration").value);
+    const query = ($("#loadTestQuery").value || "").trim();
+    const runBtn = $("#loadTestRunBtn");
+    const resultsEl = $("#loadTestResults");
+
+    if (!Number.isFinite(qps) || qps <= 0) {
+        renderLoadTestError("Target QPS must be greater than 0.");
+        return;
+    }
+    if (!Number.isFinite(duration) || duration <= 0) {
+        renderLoadTestError("Duration must be greater than 0.");
+        return;
+    }
+    if (!query) {
+        renderLoadTestError("Query is required for load testing.");
+        return;
+    }
+
+    runBtn.disabled = true;
+    runBtn.textContent = "Running...";
+    resultsEl.innerHTML = '<div class="load-test-empty">Running Pinecone load test...</div>';
+
+    try {
+        const res = await fetch(`${API}/api/load-test`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                query,
+                qps,
+                duration_seconds: Math.round(duration),
+                top_k: 8,
+                document_filter: state.documentFilter,
+            }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.detail || "Load test failed");
+        }
+
+        renderLoadTestResults(data);
+    } catch (err) {
+        renderLoadTestError(err.message || "Load test request failed.");
+    } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = "Run Pinecone Load Test";
+    }
+}
+
+function renderLoadTestResults(result) {
+    const fmt = (val) => (typeof val === "number" ? `${val.toFixed(2)} ms` : "n/a");
+    const qpsAchieved = typeof result.qps_achieved === "number" ? result.qps_achieved.toFixed(2) : "n/a";
+
+    $("#loadTestResults").innerHTML = `
+        <div class="load-test-grid">
+            <div><span>Avg</span><strong>${fmt(result.avg_latency_ms)}</strong></div>
+            <div><span>P50</span><strong>${fmt(result.p50_latency_ms)}</strong></div>
+            <div><span>P90</span><strong>${fmt(result.p90_latency_ms)}</strong></div>
+            <div><span>P99</span><strong>${fmt(result.p99_latency_ms)}</strong></div>
+        </div>
+        <div class="load-test-meta">
+            Target: ${result.qps_target} QPS · Achieved: ${qpsAchieved} QPS<br>
+            Requests: ${result.successful_requests}/${result.total_requests} successful
+            ${result.failed_requests ? ` · ${result.failed_requests} failed` : ""}
+        </div>
+    `;
+}
+
+function renderLoadTestError(message) {
+    $("#loadTestResults").innerHTML = `<div class="load-test-error">${escapeHtml(message)}</div>`;
 }
 
 // ───── Markdown Rendering ─────

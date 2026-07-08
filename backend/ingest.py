@@ -148,7 +148,11 @@ def ingest():
         parent_folder = str(rel_path.parent) if str(rel_path.parent) != "." else "Root"
 
         print(f"Processing: {rel_path}")
-        pages = extract_text_from_pdf(pdf_path)
+        try:
+            pages = extract_text_from_pdf(pdf_path)
+        except Exception as e:
+            print(f"  Skipped (failed to parse PDF: {e})")
+            continue
         if not pages:
             print(f"  Skipped (no extractable text)")
             continue
@@ -173,7 +177,14 @@ def ingest():
 
         for i in range(0, len(records), BATCH_SIZE):
             batch = records[i : i + BATCH_SIZE]
-            index.upsert_records(namespace="documents", records=batch)
+            valid_batch = [
+                r
+                for r in batch
+                if isinstance(r.get("chunk_text"), str) and r["chunk_text"].strip()
+            ]
+            if not valid_batch:
+                continue
+            index.upsert_records(namespace="documents", records=valid_batch)
             time.sleep(0.5)
 
         total_chunks += chunk_idx

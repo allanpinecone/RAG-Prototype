@@ -55,7 +55,8 @@ body {
     flex-direction: column;
     flex-shrink: 0;
     transition: width var(--transition), transform var(--transition);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     z-index: 10;
 }
 
@@ -298,6 +299,113 @@ body {
     color: var(--text-muted);
     padding: 20px 0;
     text-align: center;
+}
+
+/* Load Test */
+.load-test-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.load-test-form label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.load-test-form input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: var(--transition);
+}
+
+.load-test-form input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.load-test-btn {
+    margin-top: 6px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.load-test-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.load-test-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.load-test-results {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.load-test-empty {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.load-test-error {
+    font-size: 11px;
+    color: #fca5a5;
+    line-height: 1.4;
+}
+
+.load-test-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.load-test-grid div {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px;
+}
+
+.load-test-grid span {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.load-test-grid strong {
+    font-size: 13px;
+    color: var(--text-primary);
+    letter-spacing: -0.1px;
+}
+
+.load-test-meta {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.35;
 }
 
 /* Health */

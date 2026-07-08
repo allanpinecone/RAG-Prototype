@@ -68,6 +68,25 @@
                 </div>
             </div>
 
+            <div class="sidebar-section">
+                <h3>Load Test</h3>
+                <form class="load-test-form" id="loadTestForm">
+                    <label for="loadTestQps">Target QPS</label>
+                    <input id="loadTestQps" type="number" min="0.1" step="0.1" value="1">
+
+                    <label for="loadTestDuration">Duration (sec)</label>
+                    <input id="loadTestDuration" type="number" min="1" step="1" value="10">
+
+                    <label for="loadTestQuery">Query</label>
+                    <input id="loadTestQuery" type="text" value="document summary">
+
+                    <button type="submit" class="load-test-btn" id="loadTestRunBtn">Run Pinecone Load Test</button>
+                </form>
+                <div class="load-test-results" id="loadTestResults">
+                    <div class="load-test-empty">Run a test to see avg, p50, p90, and p99 latency.</div>
+                </div>
+            </div>
+
             <div class="sidebar-section sidebar-footer">
                 <div class="index-health" id="indexHealth">
                     <div class="health-dot"></div>
