@@ -1,1 +1,19 @@
 .env
+.env.*
+!.env.example
+
+# Local document corpus
+Documents/
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+
+# OS/editor artifacts
+.DS_Store
